@@ -5,12 +5,10 @@
    Implemented in Rocq (Coq)
    ============================================================ *)
 
-Require Import Coq.Arith.Arith.
-Require Import Coq.Arith.EqNat.
-Require Import Coq.Bool.Bool.
-Require Import Coq.Lists.List.
-Require Import Coq.Arith.PeanoNat.
-Import ListNotations.
+From Stdlib Require Import Arith.Arith.
+From Stdlib Require Import Arith.PeanoNat.
+From Stdlib Require Import Bool.Bool.
+From Stdlib Require Import Lia.
 
 (* ============================================================
    SECTION 1: Station Definitions
