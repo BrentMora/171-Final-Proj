@@ -17,9 +17,8 @@ From Stdlib Require Import Logic.
    represent stations in order (index 0 = first station).
    ============================================================ *)
 
-(* --- LRT-1 Stations (North–South, 20 stations) --- *)
 Inductive LRT1_Station : Type :=
-  | FPJ             (* Fernando Poe Jr. (Roosevelt) *)
+  | FPJ
   | Balintawak
   | Monumento
   | FiveCorners
@@ -40,8 +39,7 @@ Inductive LRT1_Station : Type :=
   | Libertad
   | EDSA_LRT1.
 
-(* --- LRT-2 Stations (East–West, 13 stations) --- *)
-Inductive LRT2_Station : Type :=
+  Inductive LRT2_Station : Type :=
   | Antipolo
   | Marikina
   | Santolan_LRT2
@@ -56,7 +54,6 @@ Inductive LRT2_Station : Type :=
   | Legarda
   | Recto.
 
-(* --- MRT-3 Stations (North–South, 13 stations) --- *)
 Inductive MRT3_Station : Type :=
   | North_Avenue
   | Quezon_Avenue
@@ -183,31 +180,30 @@ Definition mrt3_base_fare (src dst : MRT3_Station) : nat :=
   let d := stops_apart (mrt3_index src) (mrt3_index dst) in
   1300 + d * 150.
 
-(* ============================================================
+(* ============================================
    SECTION 5: Concession / Discount Rules
-   Republic Act 9994  – 20 % discount for Senior Citizens
-   Republic Act 7277  – 20 % discount for PWDs
-   DepEd/DOST policy  – 20 % discount for Students
-   Discounts do NOT stack (RA 9994 Sec. 4-a).
-   We represent discounts as a numerator over 100.
-   ============================================================ *)
+   50 % discount for Senior Citizens
+   50 % discount for PWDs
+   50 % discount for Students
+   Discounts are non-stackable
+   ============================================ *)
 
-(* discount_pct: percentage point of discount (0 = none, 20 = 20 %) *)
+(* discount_pct: percentage point of discount (0 = none, 50 = 50 %) *)
 Definition discount_pct (cat : PassengerCategory) : nat :=
   match cat with
   | Regular       => 0
-  | Student       => 20
-  | SeniorCitizen => 20
-  | PWD           => 20
+  | Student       => 50
+  | SeniorCitizen => 50
+  | PWD           => 50
   end.
 
 (* Apply discount to a base fare *)
 Definition apply_discount (base_fare : nat) (cat : PassengerCategory) : nat :=
   match cat with
   | Regular => base_fare
-  | Student => base_fare * 4 / 5
-  | SeniorCitizen => base_fare * 4 / 5
-  | PWD => base_fare * 4 / 5
+  | Student => base_fare * 1 / 2
+  | SeniorCitizen => base_fare * 1 / 2
+  | PWD => base_fare * 1 / 2
   end.
 
 (* ============================================================
@@ -419,15 +415,17 @@ Proof.
   unfold mrt3_fare, apply_discount, discount_pct. simpl. lia.
 Qed.
 
-Lemma twenty_pct_discount_strict :
+Lemma fifty_pct_discount_strict :
   forall base : nat,
     1 <= base ->
-    base * 4 / 5 < base.
+    base / 2 < base.
 Proof.
   intros base Hbase.
-  apply Nat.div_lt_upper_bound.
+  destruct base.
   - lia.
-  - nia.
+  - destruct base.
+    + simpl. lia.
+    + apply Nat.div_lt; lia.
 Qed.
 
 Theorem student_pays_less_lrt1 :
@@ -435,8 +433,13 @@ Theorem student_pays_less_lrt1 :
     lrt1_fare src dst Student < lrt1_base_fare src dst.
 Proof.
   intros src dst.
-  unfold lrt1_fare, apply_discount, discount_pct, lrt1_base_fare.
-  apply twenty_pct_discount_strict. lia.
+  unfold lrt1_fare, lrt1_base_fare.
+  cbn [apply_discount].
+  replace ((1500 + stops_apart (lrt1_index src) (lrt1_index dst) * 150) * 1 / 2)
+    with ((1500 + stops_apart (lrt1_index src) (lrt1_index dst) * 150) / 2)
+    by lia.
+  apply fifty_pct_discount_strict.
+  lia.
 Qed.
 
 Theorem senior_pays_less_lrt2 :
@@ -445,7 +448,7 @@ Theorem senior_pays_less_lrt2 :
 Proof.
   intros src dst.
   unfold lrt2_fare, apply_discount, discount_pct, lrt2_base_fare.
-  apply twenty_pct_discount_strict. lia.
+  apply fifty_pct_discount_strict. lia.
 Qed.
 
 Theorem pwd_pays_less_mrt3 :
@@ -454,7 +457,7 @@ Theorem pwd_pays_less_mrt3 :
 Proof.
   intros src dst.
   unfold mrt3_fare, apply_discount, discount_pct, mrt3_base_fare.
-  apply twenty_pct_discount_strict. lia.
+  apply fifty_pct_discount_strict. lia.
 Qed.
 
 (* ============================================================
@@ -481,13 +484,11 @@ Qed.
 Lemma double_discount_lt_single :
   forall base : nat,
     1300 <= base ->
-    (base * 4 / 5) * 4 / 5 < base * 4 / 5.
+    (base / 2) / 2 < base / 2.
 Proof.
   intros base Hbase.
-  apply twenty_pct_discount_strict.
-  apply Nat.div_le_lower_bound.
-  - lia.
-  - nia.
+  apply fifty_pct_discount_strict.
+  lia.
 Qed.
 
 (* The lrt1_fare function applies exactly one discount *)
@@ -611,10 +612,10 @@ Example mrt3_end_to_end :
 Proof. reflexivity. Qed.
 
 (* Student discount on LRT-2 end-to-end (0→12, 12 stops):
-   base = 1500 + 12*150 = 3300 centavos
-   20 % off → 3300 - 3300*20/100 = 3300 - 660 = 2640 centavos = 26.40 PHP *)
+  base = 1500 + 12*150 = 3300 centavos
+  50 % off → 3300 - 3300*50/100 = 3300 - 1650 = 1650 centavos = 16.50 PHP *)
 Example lrt2_student_endtoend :
-  lrt2_fare Antipolo Recto Student = 2640.
+  lrt2_fare Antipolo Recto Student = 1650.
 Proof. reflexivity. Qed.
 
 (* Symmetry check: fare from A→B equals fare from B→A *)
