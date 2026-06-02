@@ -200,10 +200,14 @@ Definition discount_pct (cat : PassengerCategory) : nat :=
   | PWD           => 20
   end.
 
-(* Apply discount to a base fare (integer arithmetic, round down) *)
+(* Apply discount to a base fare *)
 Definition apply_discount (base_fare : nat) (cat : PassengerCategory) : nat :=
-  let pct := discount_pct cat in
-  base_fare - (base_fare * pct / 100).
+  match cat with
+  | Regular => base_fare
+  | Student => base_fare * 80 / 100
+  | SeniorCitizen => base_fare * 80 / 100
+  | PWD => base_fare * 80 / 100
+  end.
 
 (* ============================================================
    SECTION 6: Top-Level Fare Functions (one per line)
@@ -306,15 +310,26 @@ Proof.
   - apply Nat.leb_nle in H1. lia.
 Qed.
 
-(* apply_discount is monotone in its first argument *)
 Lemma apply_discount_mono :
   forall f1 f2 : nat, forall cat : PassengerCategory,
     f1 <= f2 ->
     apply_discount f1 cat <= apply_discount f2 cat.
 Proof.
   intros f1 f2 cat H.
-  unfold apply_discount.
-  destruct cat; simpl; lia.
+  destruct cat; unfold apply_discount; simpl.
+  - exact H.
+  - change ((f1 * 80) / 100 <= (f2 * 80) / 100).
+    apply Nat.div_le_mono.
+    + lia.
+    + apply Nat.mul_le_mono_r. exact H.
+  - change ((f1 * 80) / 100 <= (f2 * 80) / 100).
+    apply Nat.div_le_mono.
+    + lia.
+    + apply Nat.mul_le_mono_r. exact H.
+  - change ((f1 * 80) / 100 <= (f2 * 80) / 100).
+    apply Nat.div_le_mono.
+    + lia.
+    + apply Nat.mul_le_mono_r. exact H.
 Qed.
 
 (*
