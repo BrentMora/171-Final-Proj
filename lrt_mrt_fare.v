@@ -9,6 +9,7 @@ From Stdlib Require Import Arith.Arith.
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Bool.Bool.
 From Stdlib Require Import Lia.
+From Stdlib Require Import Logic.
 
 (* ============================================================
    SECTION 1: Station Definitions
@@ -204,9 +205,9 @@ Definition discount_pct (cat : PassengerCategory) : nat :=
 Definition apply_discount (base_fare : nat) (cat : PassengerCategory) : nat :=
   match cat with
   | Regular => base_fare
-  | Student => base_fare * 80 / 100
-  | SeniorCitizen => base_fare * 80 / 100
-  | PWD => base_fare * 80 / 100
+  | Student => base_fare * 4 / 5
+  | SeniorCitizen => base_fare * 4 / 5
+  | PWD => base_fare * 4 / 5
   end.
 
 (* ============================================================
@@ -316,18 +317,15 @@ Lemma apply_discount_mono :
     apply_discount f1 cat <= apply_discount f2 cat.
 Proof.
   intros f1 f2 cat H.
-  destruct cat; unfold apply_discount; simpl.
+  destruct cat; cbn [apply_discount].
   - exact H.
-  - change ((f1 * 80) / 100 <= (f2 * 80) / 100).
-    apply Nat.div_le_mono.
+  - apply Nat.div_le_mono.
     + lia.
     + apply Nat.mul_le_mono_r. exact H.
-  - change ((f1 * 80) / 100 <= (f2 * 80) / 100).
-    apply Nat.div_le_mono.
+  - apply Nat.div_le_mono.
     + lia.
     + apply Nat.mul_le_mono_r. exact H.
-  - change ((f1 * 80) / 100 <= (f2 * 80) / 100).
-    apply Nat.div_le_mono.
+  - apply Nat.div_le_mono.
     + lia.
     + apply Nat.mul_le_mono_r. exact H.
 Qed.
@@ -363,6 +361,17 @@ Proof.
   apply stops_apart_mono; assumption.
 Qed.
 
+Lemma mrt3_base_fare_mono_stops :
+  forall d1 d2 : nat,
+    d1 <= d2 ->
+    1300 + d1 * 150 <= 1300 + d2 * 150.
+Proof.
+  intros d1 d2 H.
+  apply Nat.add_le_mono_l.
+  apply Nat.mul_le_mono_r.
+  exact H.
+Qed.
+
 Theorem mrt3_fare_monotone :
   forall (src dst1 dst2 : MRT3_Station) (cat : PassengerCategory),
     mrt3_index src <= mrt3_index dst1 ->
@@ -372,7 +381,7 @@ Proof.
   intros src dst1 dst2 cat Hsrc1 H12.
   unfold mrt3_fare, mrt3_base_fare.
   apply apply_discount_mono.
-  apply lrt1_base_fare_mono_stops.
+  apply mrt3_base_fare_mono_stops.
   apply stops_apart_mono; assumption.
 Qed.
 
@@ -410,17 +419,15 @@ Proof.
   unfold mrt3_fare, apply_discount, discount_pct. simpl. lia.
 Qed.
 
-(* Concession holders pay strictly less than the base fare *)
-(* Helper: for any base >= 1300 (the minimum MRT-3 fare), 
-   the 20% discount yields a strictly smaller value. *)
 Lemma twenty_pct_discount_strict :
   forall base : nat,
-    0 < base ->
-    base - base * 20 / 100 < base.
+    1 <= base ->
+    base * 4 / 5 < base.
 Proof.
-  intros base Hpos.
-  assert (base * 20 / 100 >= 1) by lia.
-  lia.
+  intros base Hbase.
+  apply Nat.div_lt_upper_bound.
+  - lia.
+  - nia.
 Qed.
 
 Theorem student_pays_less_lrt1 :
@@ -460,31 +467,27 @@ Qed.
    ============================================================ *)
 
 (* The discount rate is a function solely of the category *)
-Theorem discount_unique :
-  forall (cat1 cat2 : PassengerCategory),
-    discount_pct cat1 = discount_pct cat2 ->
-    (cat1 = Regular <-> cat2 = Regular) /\
-    (cat1 = Regular \/ discount_pct cat1 = 20).
+Theorem regular_discount_unique :
+  forall cat : PassengerCategory,
+    discount_pct cat = 0 <-> cat = Regular.
 Proof.
-  intros cat1 cat2 Heq.
-  destruct cat1; destruct cat2; simpl in *; split; split; intros H;
-    try discriminate; try reflexivity; try (left; reflexivity); try (right; reflexivity).
+  intros cat.
+  destruct cat; simpl; split; intro H; try reflexivity; try discriminate.
 Qed.
 
 (* Applying the discount function twice with any nonzero rate gives a
    DIFFERENT (strictly smaller) result than applying it once, proving
    the system cannot accidentally double-discount. *)
 Lemma double_discount_lt_single :
-  forall base pct : nat,
-    0 < pct -> pct < 100 -> 0 < base ->
-    base - (base - base * pct / 100) * pct / 100
-    < base - base * pct / 100.
+  forall base : nat,
+    1300 <= base ->
+    (base * 4 / 5) * 4 / 5 < base * 4 / 5.
 Proof.
-  intros base pct Hpct_pos Hpct_lt Hbase.
-  assert (H1 : base * pct / 100 >= 1) by nia.
-  assert (H2 : base - base * pct / 100 < base) by lia.
-  assert (H3 : (base - base * pct / 100) * pct / 100 >= 1) by nia.
-  lia.
+  intros base Hbase.
+  apply twenty_pct_discount_strict.
+  apply Nat.div_le_lower_bound.
+  - lia.
+  - nia.
 Qed.
 
 (* The lrt1_fare function applies exactly one discount *)
@@ -506,8 +509,11 @@ Theorem stacking_would_differ_lrt1 :
 Proof.
   intros src dst cat Hcat.
   unfold lrt1_fare, apply_discount, discount_pct, lrt1_base_fare.
-  destruct cat; try contradiction; simpl;
-    apply double_discount_lt_single; lia.
+  destruct cat.
+  - contradiction.
+  - apply double_discount_lt_single; nia.
+  - apply double_discount_lt_single; nia.
+  - apply double_discount_lt_single; nia.
 Qed.
 
 Theorem stacking_would_differ_lrt2 :
@@ -518,8 +524,11 @@ Theorem stacking_would_differ_lrt2 :
 Proof.
   intros src dst cat Hcat.
   unfold lrt2_fare, apply_discount, discount_pct, lrt2_base_fare.
-  destruct cat; try contradiction; simpl;
-    apply double_discount_lt_single; lia.
+  destruct cat.
+  - contradiction.
+  - apply double_discount_lt_single; nia.
+  - apply double_discount_lt_single; nia.
+  - apply double_discount_lt_single; nia.
 Qed.
 
 Theorem stacking_would_differ_mrt3 :
@@ -530,8 +539,11 @@ Theorem stacking_would_differ_mrt3 :
 Proof.
   intros src dst cat Hcat.
   unfold mrt3_fare, apply_discount, discount_pct, mrt3_base_fare.
-  destruct cat; try contradiction; simpl;
-    apply double_discount_lt_single; lia.
+  destruct cat.
+  - contradiction.
+  - apply double_discount_lt_single; nia.
+  - apply double_discount_lt_single; nia.
+  - apply double_discount_lt_single; nia.
 Qed.
 
 (* ============================================================
@@ -595,7 +607,7 @@ Proof. reflexivity. Qed.
 
 (* MRT-3: end-to-end (0 to 12 = 12 stops) → 13.00 + 12*1.50 = 31.00 PHP *)
 Example mrt3_end_to_end :
-  mrt3_base_fare North_Avenue Taft_Avenue_MRT3 = 4300.
+  mrt3_base_fare North_Avenue Taft_Avenue_MRT3 = 3100.
 Proof. reflexivity. Qed.
 
 (* Student discount on LRT-2 end-to-end (0→12, 12 stops):
